@@ -1,72 +1,55 @@
 import apiClient from './apiClient';
 import { User } from '../store/slices/usersSlice';
-// Define the API endpoints for users
-const USERS_URL = '/users';
-const AUTH_URL = '/auth';
+
+// Base URL for your backend
+const BASE_URL = '/user_profile';
+
 // Register new user
 export const registerUser = async (userData: {
   name: string;
   email: string;
   password: string;
+  password_confirm: string;
 }) => {
-  /*
-  const response = await apiClient.post(`${AUTH_URL}/register`, userData)
-  return response.data
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve({});
+  const response = await apiClient.post(`${BASE_URL}/register`, userData);
+  return response.data;
 };
+
 // Login user
 export const loginUser = async (credentials: {
   email: string;
   password: string;
 }) => {
-  /*
-  const response = await apiClient.post(`${AUTH_URL}/login`, credentials)
-  // Store token in localStorage
+  const response = await apiClient.post(`${BASE_URL}/login`, credentials);
+
   if (response.data.token) {
-    localStorage.setItem('authToken', response.data.token)
+    localStorage.setItem('authToken', response.data.token);
   }
-  return response.data
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve({});
+
+  return response.data;
 };
+
 // Logout user
-export const logoutUser = () => {
-  /*
-  // Remove token from localStorage
-  localStorage.removeItem('authToken')
-  // You might want to call an API endpoint to invalidate the token on the server
-  // await apiClient.post(`${AUTH_URL}/logout`)
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve();
+export const logoutUser = async () => {
+  localStorage.removeItem('authToken');
+  const response = await apiClient.post(`${BASE_URL}/logout`);
+  return response.data;
 };
+
 // Get current user profile
 export const getCurrentUser = async () => {
-  /*
-  const response = await apiClient.get(`${USERS_URL}/me`)
-  return response.data
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve(null);
+  const response = await apiClient.get(`${BASE_URL}/me`);
+  return response.data;
 };
+
 // Update user profile
 export const updateUserProfile = async (userData: Partial<User>) => {
-  /*
-  const response = await apiClient.put(`${USERS_URL}/me`, userData)
-  return response.data
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve({});
+  const response = await apiClient.put(`${BASE_URL}/me`, userData);
+  return response.data;
 };
+
 // Become a host
 export const becomeHost = async () => {
-  /*
-  const response = await apiClient.post(`${USERS_URL}/become-host`)
-  return response.data
-  */
-  // Mock implementation - replace with actual API call
-  return Promise.resolve({});
+  const response = await apiClient.post(`${BASE_URL}/become-host`);
+  return response.data;
 };

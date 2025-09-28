@@ -1,21 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { SearchIcon, MenuIcon, X as CloseIcon, Calendar, MapPin, Bell, LogOut, LayoutDashboard } from 'lucide-react';
+import { 
+  Search as SearchIcon, 
+  Menu as MenuIcon, 
+  X as CloseIcon, 
+  Calendar, 
+  MapPin, 
+  Bell, 
+  LogOut, 
+  LayoutDashboard 
+} from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { logout } from '../store/slices/usersSlice';
+import { logoutUserAsync, getCurrentUserAsync } from '../store/slices/usersSlice';
+
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const {
-    currentUser,
-    isAuthenticated
-  } = useAppSelector(state => state.users);
+
+  const { currentUser, isAuthenticated } = useAppSelector((state) => state.users);
+
+  // Scroll shadow effect
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -23,172 +34,336 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Close menus on route change
   useEffect(() => {
-    // Close mobile menu when route changes
     setIsMenuOpen(false);
     setIsSearchExpanded(false);
     setIsProfileDropdownOpen(false);
   }, [location.pathname]);
+
+  // On mount, fetch current user if token exists
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token && !currentUser) {
+      // small delay so axios/fetch picks token correctly
+      const timer = setTimeout(() => {
+        dispatch(getCurrentUserAsync());
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [dispatch, currentUser]);
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Searching for:', searchQuery);
-    // In a real app, this would navigate to search results
     setIsSearchExpanded(false);
   };
-  const handleLogout = () => {
-    dispatch(logout());
+
+  const handleLogout = async () => {
+    await dispatch(logoutUserAsync());
     navigate('/');
   };
-  return <header className={`sticky top-0 z-50 transition-shadow duration-300 ${isScrolled ? 'bg-white shadow-md' : 'bg-white shadow-sm'}`}>
+
+  return (
+    <header
+      className={`sticky top-0 z-50 transition-shadow duration-300 ${
+        isScrolled ? 'bg-white shadow-md' : 'bg-white shadow-sm'
+      }`}
+    >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <Calendar className="h-8 w-8 text-indigo-600 mr-2" />
-            <span className="text-2xl font-bold text-indigo-600">
-              Fiesta254
-            </span>
+            <span className="text-2xl font-bold text-indigo-600">Fiesta254</span>
           </Link>
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
             {/* Search Bar */}
             <form onSubmit={handleSearch} className="relative">
               <div className="relative flex items-center">
-                <input type="text" placeholder="Search events..." className="pl-10 pr-4 py-2 w-64 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  className="pl-10 pr-4 py-2 w-64 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               </div>
             </form>
+
             {/* Navigation Links */}
             <nav className="flex items-center space-x-6">
-              <Link to="/events" className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${location.pathname === '/events' ? 'text-indigo-600' : ''}`}>
+              <Link
+                to="/events"
+                className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${
+                  location.pathname === '/events' ? 'text-indigo-600' : ''
+                }`}
+              >
                 Explore
               </Link>
-              <Link to="/categories" className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${location.pathname === '/categories' ? 'text-indigo-600' : ''}`}>
+              <Link
+                to="/categories"
+                className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${
+                  location.pathname === '/categories' ? 'text-indigo-600' : ''
+                }`}
+              >
                 Categories
               </Link>
-              {isAuthenticated && !currentUser?.isHost && <Link to="/become-host" className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${location.pathname === '/become-host' ? 'text-indigo-600' : ''}`}>
+
+              {/* Host link (depends on user) */}
+              {isAuthenticated && !currentUser?.isHost && (
+                <Link
+                  to="/become-host"
+                  className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${
+                    location.pathname === '/become-host' ? 'text-indigo-600' : ''
+                  }`}
+                >
                   Host Events
-                </Link>}
-              {!isAuthenticated && <Link to="/become-host" className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${location.pathname === '/become-host' ? 'text-indigo-600' : ''}`}>
+                </Link>
+              )}
+              {!isAuthenticated && (
+                <Link
+                  to="/become-host"
+                  className={`text-gray-700 hover:text-indigo-600 font-medium transition-colors ${
+                    location.pathname === '/become-host' ? 'text-indigo-600' : ''
+                  }`}
+                >
                   Host Events
-                </Link>}
-              {isAuthenticated ? <div className="flex items-center space-x-2">
+                </Link>
+              )}
+
+              {/* Authenticated user dropdown */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-2">
                   <div className="relative">
-                    <button onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} className="flex items-center space-x-2">
-                      <img src={currentUser?.profileImage} alt={currentUser?.name} className="h-8 w-8 rounded-full object-cover border-2 border-indigo-100" />
+                    <button
+                      onClick={() =>
+                        setIsProfileDropdownOpen(!isProfileDropdownOpen)
+                      }
+                      className="flex items-center space-x-2"
+                    >
+                      <img
+                        src={currentUser?.profileImage || '/default-avatar.png'}
+                        alt={currentUser?.name}
+                        className="h-8 w-8 rounded-full object-cover border-2 border-indigo-100"
+                      />
                       <span className="text-gray-700 font-medium">
                         {currentUser?.name.split(' ')[0]}
                       </span>
                     </button>
-                    {isProfileDropdownOpen && <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                        <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+
+                    {isProfileDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                        <Link
+                          to="/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
                           <div className="flex items-center">
                             <LayoutDashboard size={16} className="mr-2" />
                             <span>Dashboard</span>
                           </div>
                         </Link>
-                        {currentUser?.isHost && <Link to="/create-event" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+
+                        {currentUser?.isHost && (
+                          <Link
+                            to="/create-event"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
                             <div className="flex items-center">
                               <Calendar size={16} className="mr-2" />
                               <span>Create Event</span>
                             </div>
-                          </Link>}
-                        <Link to="/notifications" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          </Link>
+                        )}
+
+                        <Link
+                          to="/notifications"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
                           <div className="flex items-center">
                             <Bell size={16} className="mr-2" />
                             <span>Notifications</span>
                           </div>
                         </Link>
-                        <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+
+                        <button
+                          onClick={handleLogout}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
                           <div className="flex items-center">
                             <LogOut size={16} className="mr-2" />
                             <span>Sign Out</span>
                           </div>
                         </button>
-                      </div>}
+                      </div>
+                    )}
                   </div>
-                </div> : <div className="flex items-center space-x-2">
-                  <Link to="/notifications" className="text-gray-700 hover:text-indigo-600 font-medium p-2 rounded-full hover:bg-gray-100 transition-colors relative">
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Link
+                    to="/notifications"
+                    className="text-gray-700 hover:text-indigo-600 font-medium p-2 rounded-full hover:bg-gray-100 transition-colors relative"
+                  >
                     <Bell size={20} />
                     <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
                   </Link>
-                  <Link to="/signup" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300">
+                  <Link
+                    to="/signup"
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300"
+                  >
                     Sign Up
                   </Link>
-                  <Link to="/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
+                  <Link
+                    to="/login"
+                    className="text-gray-700 hover:text-indigo-600 font-medium transition-colors"
+                  >
                     Login
                   </Link>
-                </div>}
+                </div>
+              )}
             </nav>
           </div>
+
           {/* Mobile Navigation */}
           <div className="flex items-center md:hidden">
-            {!isSearchExpanded ? <>
-                <button onClick={() => setIsSearchExpanded(true)} className="p-2 mr-2 text-gray-700">
+            {!isSearchExpanded ? (
+              <>
+                <button
+                  onClick={() => setIsSearchExpanded(true)}
+                  className="p-2 mr-2 text-gray-700"
+                >
                   <SearchIcon className="h-6 w-6" />
                 </button>
                 <button onClick={toggleMenu} className="p-2 text-gray-700">
-                  {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+                  {isMenuOpen ? (
+                    <CloseIcon className="h-6 w-6" />
+                  ) : (
+                    <MenuIcon className="h-6 w-6" />
+                  )}
                 </button>
-              </> : <form onSubmit={handleSearch} className="flex-1 flex items-center">
-                <input type="text" placeholder="Search events..." className="flex-1 pl-3 pr-10 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus />
-                <button type="button" onClick={() => setIsSearchExpanded(false)} className="ml-2">
+              </>
+            ) : (
+              <form onSubmit={handleSearch} className="flex-1 flex items-center">
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  className="flex-1 pl-3 pr-10 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsSearchExpanded(false)}
+                  className="ml-2"
+                >
                   <CloseIcon className="h-6 w-6 text-gray-500" />
                 </button>
-              </form>}
+              </form>
+            )}
           </div>
         </div>
+
         {/* Mobile Menu */}
-        {isMenuOpen && <div className="md:hidden mt-3 py-3 border-t border-gray-200">
+        {isMenuOpen && (
+          <div className="md:hidden mt-3 py-3 border-t border-gray-200">
             <nav className="flex flex-col space-y-3">
-              <Link to="/events" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+              <Link
+                to="/events"
+                className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+              >
                 <Calendar size={18} className="mr-3" />
                 Explore Events
               </Link>
-              <Link to="/categories" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+              <Link
+                to="/categories"
+                className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+              >
                 <MapPin size={18} className="mr-3" />
                 Categories
               </Link>
-              {(!isAuthenticated || !currentUser?.isHost) && <Link to="/become-host" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+              {(!isAuthenticated || !currentUser?.isHost) && (
+                <Link
+                  to="/become-host"
+                  className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                >
                   <Calendar size={18} className="mr-3" />
                   Become a Host
-                </Link>}
-              {isAuthenticated ? <>
+                </Link>
+              )}
+              {isAuthenticated ? (
+                <>
                   <div className="flex items-center py-2">
-                    <img src={currentUser?.profileImage} alt={currentUser?.name} className="h-8 w-8 rounded-full object-cover mr-3" />
+                    <img
+                      src={currentUser?.profileImage || '/default-avatar.png'}
+                      alt={currentUser?.name}
+                      className="h-8 w-8 rounded-full object-cover mr-3"
+                    />
                     <span className="font-medium">{currentUser?.name}</span>
                   </div>
-                  <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+                  <Link
+                    to="/dashboard"
+                    className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                  >
                     <LayoutDashboard size={18} className="mr-3" />
                     Dashboard
                   </Link>
-                  {currentUser?.isHost && <Link to="/create-event" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+                  {currentUser?.isHost && (
+                    <Link
+                      to="/create-event"
+                      className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                    >
                       <Calendar size={18} className="mr-3" />
                       Create Event
-                    </Link>}
-                  <Link to="/notifications" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+                    </Link>
+                  )}
+                  <Link
+                    to="/notifications"
+                    className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                  >
                     <Bell size={18} className="mr-3" />
                     Notifications
                   </Link>
-                  <button onClick={handleLogout} className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                  >
                     <LogOut size={18} className="mr-3" />
                     Sign Out
                   </button>
-                </> : <>
-                  <Link to="/login" className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2">
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="flex items-center text-gray-700 hover:text-indigo-600 font-medium py-2"
+                  >
                     <Calendar size={18} className="mr-3" />
                     Login
                   </Link>
-                  <Link to="/signup" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300 text-center mt-2">
+                  <Link
+                    to="/signup"
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-300 text-center mt-2"
+                  >
                     Sign Up
                   </Link>
-                </>}
+                </>
+              )}
             </nav>
-          </div>}
+          </div>
+        )}
       </div>
-    </header>;
+    </header>
+  );
 };
+
 export default Navbar;
