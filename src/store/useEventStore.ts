@@ -1,7 +1,7 @@
 import { useAppSelector, useAppDispatch } from './hooks';
 import { RootState } from './index';
 import { toggleLike as toggleLikeAction } from './slices/likesSlice';
-import { Event } from './slices/eventsSlice';
+import { Event } from './slices/events/eventsSlice';
 import { mockEvents } from '../data/mockData';
 const useEventStore = () => {
   const dispatch = useAppDispatch();

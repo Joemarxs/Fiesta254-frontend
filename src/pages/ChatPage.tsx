@@ -137,11 +137,11 @@ const ChatPage = () => {
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Mail size={16} className="mr-2" />
-                    <span className="text-sm">{`${host.name.toLowerCase().replace(' ', '.')}@example.com`}</span>
+                    <span className="text-sm">{`${host.email}`}</span>
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Phone size={16} className="mr-2" />
-                    <span className="text-sm">+1 (555) 123-4567</span>
+                    <span className="text-sm">{`${host.phoneNumber}`}</span>
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Clock size={16} className="mr-2" />

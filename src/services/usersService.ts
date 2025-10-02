@@ -12,6 +12,13 @@ export const registerUser = async (userData: {
   password_confirm: string;
 }) => {
   const response = await apiClient.post(`${BASE_URL}/register`, userData);
+
+   // Extract the access token
+  const accessToken = response.data.tokens?.access;
+  if (accessToken) {
+    localStorage.setItem('authToken', accessToken);
+  }
+  
   return response.data;
 };
 
@@ -22,8 +29,10 @@ export const loginUser = async (credentials: {
 }) => {
   const response = await apiClient.post(`${BASE_URL}/login`, credentials);
 
-  if (response.data.token) {
-    localStorage.setItem('authToken', response.data.token);
+  // Extract the access token
+  const accessToken = response.data.tokens?.access;
+  if (accessToken) {
+    localStorage.setItem('authToken', accessToken);
   }
 
   return response.data;

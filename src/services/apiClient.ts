@@ -13,9 +13,11 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
 
-    // Skip adding Authorization header for register & login
+    // Skip adding Authorization header for register, login, get all events, and get featured events
     const isAuthFreeEndpoint =
-      config.url?.includes('/register') || config.url?.includes('/login');
+      config.url?.includes('/register') ||
+      config.url?.includes('/login') ||
+      config.url?.includes('/events') && config.method === 'get'; // GET requests to /events
 
     if (token && !isAuthFreeEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;

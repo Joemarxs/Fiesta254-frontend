@@ -3,31 +3,31 @@ import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Heart, Users } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { toggleLike } from '../store/slices/likesSlice';
+import { Event } from '../store/slices/events/eventsSlice';
+
 interface EventCardProps {
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    location: string;
-    price: number;
-    image: string;
-    category: string;
-    attendees: number;
-    capacity: number;
-  };
+  event: Event;
 }
-const EventCard = ({
-  event
-}: EventCardProps) => {
+
+const EventCard: React.FC<EventCardProps> = ({ event }) => {
   const dispatch = useAppDispatch();
   const likedEvents = useAppSelector(state => state.likes.likedEvents);
+
   const handleLikeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dispatch(toggleLike(event.id));
   };
+
   const isLiked = likedEvents.includes(event.id);
-  const availabilityPercentage = event.attendees / event.capacity * 100;
+
+  // Pick primary image or fallback to first image or placeholder
+  const primaryImage =
+    event.images.find(img => img.isPrimary)?.imageUrl ||
+    event.images[0]?.imageUrl ||
+    '/placeholder.png';
+
+  const availabilityPercentage = (event.attendees / (event.capacity || 1)) * 100;
   let availabilityColor = 'bg-green-500';
   let availabilityText = 'Plenty available';
   if (availabilityPercentage >= 90) {
@@ -37,12 +37,25 @@ const EventCard = ({
     availabilityColor = 'bg-yellow-500';
     availabilityText = 'Selling fast';
   }
-  return <Link to={`/events/${event.id}`} className="group block">
+
+  return (
+    <Link to={`/events/${event.id}`} className="group block">
       <div className="overflow-hidden rounded-xl bg-white shadow-md transition-all duration-300 hover:shadow-lg h-full flex flex-col">
         <div className="relative">
-          <img src={event.image} alt={event.title} className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          <button onClick={handleLikeClick} className="absolute right-3 top-3 rounded-full bg-white p-2 shadow-md transition-colors z-10" aria-label={isLiked ? 'Remove from favorites' : 'Add to favorites'}>
-            <Heart size={20} className={`${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+          <img
+            src={primaryImage}
+            alt={event.title}
+            className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <button
+            onClick={handleLikeClick}
+            className="absolute right-3 top-3 rounded-full bg-white p-2 shadow-md transition-colors z-10"
+            aria-label={isLiked ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart
+              size={20}
+              className={`${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+            />
           </button>
           <div className="absolute top-3 left-3">
             <span className="inline-block rounded-full bg-indigo-600 px-3 py-1 text-xs font-medium text-white shadow-md">
@@ -54,9 +67,10 @@ const EventCard = ({
               <Users size={14} className="mr-1" />
               <div className="flex items-center">
                 <div className="w-24 h-1.5 bg-gray-300 rounded-full overflow-hidden mr-2">
-                  <div className={`h-full ${availabilityColor} rounded-full`} style={{
-                  width: `${availabilityPercentage}%`
-                }}></div>
+                  <div
+                    className={`h-full ${availabilityColor} rounded-full`}
+                    style={{ width: `${availabilityPercentage}%` }}
+                  ></div>
                 </div>
                 <span>{availabilityText}</span>
               </div>
@@ -71,10 +85,10 @@ const EventCard = ({
             <Calendar size={16} className="mr-2 flex-shrink-0" />
             <span className="text-sm">
               {new Date(event.date).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            })}
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              })}
             </span>
           </div>
           <div className="mb-4 flex items-center text-gray-600">
@@ -91,6 +105,8 @@ const EventCard = ({
           </div>
         </div>
       </div>
-    </Link>;
+    </Link>
+  );
 };
+
 export default EventCard;

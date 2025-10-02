@@ -14,14 +14,27 @@ export interface User {
   location?: string;
 }
 
+// --- State interface ---
 interface UsersState {
   currentUser: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   error: string | null;
   isLoading: boolean;
+  hasFetchedUser: boolean; // ✅ used to avoid unnecessary API calls
 }
 
-// Async thunks using real backend
+// --- Initial state ---
+const initialState: UsersState = {
+  currentUser: null,
+  token: localStorage.getItem('authToken'),
+  isAuthenticated: !!localStorage.getItem('authToken'),
+  error: null,
+  isLoading: false,
+  hasFetchedUser: false,
+};
+
+// --- Async thunks ---
 export const registerUserAsync = createAsyncThunk(
   'users/register',
   async (
@@ -30,9 +43,8 @@ export const registerUserAsync = createAsyncThunk(
   ) => {
     try {
       const response = await usersService.registerUser(userData);
-      // save token immediately
-      localStorage.setItem('authToken', response.token);
-      return response; // { user, token }
+      localStorage.setItem('authToken', response.tokens.access);
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -41,15 +53,11 @@ export const registerUserAsync = createAsyncThunk(
 
 export const loginUserAsync = createAsyncThunk(
   'users/login',
-  async (
-    credentials: { email: string; password: string },
-    { rejectWithValue }
-  ) => {
+  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await usersService.loginUser(credentials);
-      // save token immediately
-      localStorage.setItem('authToken', response.token);
-      return response; // { user, token }
+      localStorage.setItem('authToken', response.tokens.access);
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -92,27 +100,19 @@ export const becomeHostAsync = createAsyncThunk(
   }
 );
 
-// New thunk: Get current user
 export const getCurrentUserAsync = createAsyncThunk(
   'users/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
       const response = await usersService.getCurrentUser();
-      return response; // should return user object
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
 
-// --- Initial state hydrates from localStorage ---
-const initialState: UsersState = {
-  currentUser: null,
-  isAuthenticated: !!localStorage.getItem('authToken'),
-  error: null,
-  isLoading: false,
-};
-
+// --- Slice ---
 export const usersSlice = createSlice({
   name: 'users',
   initialState,
@@ -127,6 +127,7 @@ export const usersSlice = createSlice({
       state.currentUser = null;
       state.isAuthenticated = false;
       state.error = null;
+      state.hasFetchedUser = true;
       localStorage.removeItem('authToken');
     },
   },
@@ -139,11 +140,14 @@ export const usersSlice = createSlice({
     builder.addCase(registerUserAsync.fulfilled, (state, action) => {
       state.isLoading = false;
       state.currentUser = action.payload.user;
+      state.token = action.payload.tokens.access;
       state.isAuthenticated = true;
+      state.hasFetchedUser = true;
     });
     builder.addCase(registerUserAsync.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
+      state.hasFetchedUser = true;
     });
 
     // --- Login ---
@@ -154,22 +158,27 @@ export const usersSlice = createSlice({
     builder.addCase(loginUserAsync.fulfilled, (state, action) => {
       state.isLoading = false;
       state.currentUser = action.payload.user;
+      state.token = action.payload.tokens.access;
       state.isAuthenticated = true;
+      state.hasFetchedUser = true;
     });
     builder.addCase(loginUserAsync.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
+      state.hasFetchedUser = true;
     });
 
     // --- Logout ---
     builder.addCase(logoutUserAsync.fulfilled, (state) => {
       state.currentUser = null;
       state.isAuthenticated = false;
+      state.hasFetchedUser = true;
       localStorage.removeItem('authToken');
     });
     builder.addCase(logoutUserAsync.rejected, (state) => {
       state.currentUser = null;
       state.isAuthenticated = false;
+      state.hasFetchedUser = true;
       localStorage.removeItem('authToken');
     });
 
@@ -214,13 +223,17 @@ export const usersSlice = createSlice({
       state.isLoading = false;
       state.currentUser = action.payload;
       state.isAuthenticated = true;
+      state.hasFetchedUser = true;
     });
     builder.addCase(getCurrentUserAsync.rejected, (state, action) => {
       state.isLoading = false;
+      state.hasFetchedUser = true;
       const msg = action.payload as string;
-      // Ignore 401 Unauthorized gracefully
       if (msg?.toString().includes('401') || msg?.toLowerCase().includes('unauthorized')) {
+        state.currentUser = null;
+        state.isAuthenticated = false;
         state.error = null;
+        localStorage.removeItem('authToken');
       } else {
         state.error = msg;
       }

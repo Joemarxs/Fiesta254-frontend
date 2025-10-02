@@ -1,48 +1,97 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { mockEvents } from '../data/mockData';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import EventCard from '../components/EventCard';
 import { Search, Calendar, MapPin, Filter, ChevronDown } from 'lucide-react';
+import { fetchEvents } from '../store/slices/events/eventsSlice';
+
+// Small reusable loader dots component
+const LoadingDots: React.FC = () => {
+  return (
+    <div className="flex space-x-1">
+      <span className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></span>
+      <span className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.2s]"></span>
+      <span className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.4s]"></span>
+    </div>
+  );
+};
+
 const EventsPage = () => {
   const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { events, isLoading, error, hasFetched, nextPage } = useAppSelector(
+    state => state.events
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [date, setDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [filteredEvents, setFilteredEvents] = useState(mockEvents);
-  // Parse query parameters
+
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
+  // Parse category query parameter
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const category = queryParams.get('category');
-    if (category) {
-      setCategoryFilter(category);
-    } else {
-      setCategoryFilter('');
-    }
+    setCategoryFilter(category || '');
   }, [location.search]);
-  // Filter events based on category and other filters
+
+  // Initial fetch → always start with page 1
   useEffect(() => {
-    let events = [...mockEvents];
-    if (categoryFilter) {
-      events = events.filter(event => event.category === categoryFilter);
+    if (!hasFetched) {
+      dispatch(fetchEvents(1)); // ✅ explicitly page 1
     }
-    if (searchQuery) {
-      events = events.filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()) || event.description.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [dispatch, hasFetched]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        const target = entries[0];
+        if (target.isIntersecting && !isLoading && nextPage) {
+          dispatch(fetchEvents(nextPage)); //  fetch the NEXT page
+        }
+      },
+      { threshold: 1 }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
     }
-    if (locationFilter) {
-      events = events.filter(event => event.location.toLowerCase().includes(locationFilter.toLowerCase()));
-    }
-    if (date) {
-      events = events.filter(event => event.date >= date);
-    }
-    setFilteredEvents(events);
-  }, [categoryFilter, searchQuery, locationFilter, date]);
+
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current);
+      }
+    };
+  }, [dispatch, isLoading, nextPage]);
+
+  // Filter events using useMemo for performance
+  const filteredEvents = useMemo(() => {
+    return events
+      .filter(event => (categoryFilter ? event.category === categoryFilter : true))
+      .filter(event =>
+        searchQuery
+          ? event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            event.description.toLowerCase().includes(searchQuery.toLowerCase())
+          : true
+      )
+      .filter(event =>
+        locationFilter ? event.location.toLowerCase().includes(locationFilter.toLowerCase()) : true
+      )
+      .filter(event => (date ? event.date >= date : true));
+  }, [events, categoryFilter, searchQuery, locationFilter, date]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // The filtering is already handled by the useEffect
+    // Filtering is already reactive via useMemo
   };
-  return <div className="bg-gray-50 min-h-screen">
+
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      {/* Header & search */}
       <div className="bg-indigo-900 text-white py-12">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold mb-6">
@@ -50,25 +99,51 @@ const EventsPage = () => {
           </h1>
           <div className="bg-white rounded-lg shadow-lg p-2 md:p-4 max-w-4xl">
             <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-2">
+              {/* Search */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <input type="text" placeholder="Search events..." className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
               </div>
+              {/* Location */}
               <div className="flex-1 relative">
                 <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <input type="text" placeholder="Location" className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
+                <input
+                  type="text"
+                  placeholder="Location"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={locationFilter}
+                  onChange={e => setLocationFilter(e.target.value)}
+                />
               </div>
+              {/* Date */}
               <div className="flex-1 relative">
                 <Calendar className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <input type="date" placeholder="Date" className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" value={date} onChange={e => setDate(e.target.value)} />
+                <input
+                  type="date"
+                  placeholder="Date"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                />
               </div>
-              <button type="submit" className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition duration-300 whitespace-nowrap">
+              <button
+                type="submit"
+                className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition duration-300 whitespace-nowrap"
+              >
                 Find Events
               </button>
             </form>
           </div>
         </div>
       </div>
+
+      {/* Filters & event list */}
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
@@ -81,85 +156,54 @@ const EventsPage = () => {
             </p>
           </div>
           <div className="mt-4 md:mt-0">
-            <button onClick={() => setShowFilters(!showFilters)} className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
               <Filter size={18} />
               <span>Filters</span>
               <ChevronDown size={16} className={showFilters ? 'transform rotate-180' : ''} />
             </button>
           </div>
         </div>
-        {showFilters && <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Event Type
-                </label>
-                <select className="w-full border border-gray-300 rounded-lg p-2" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                  <option value="">All Types</option>
-                  <option value="Music">Music</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Food & Drink">Food & Drink</option>
-                  <option value="Wellness">Wellness</option>
-                  <option value="Business">Business</option>
-                  <option value="Art">Art</option>
-                  <option value="Sports">Sports</option>
-                  <option value="Entertainment">Entertainment</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price Range
-                </label>
-                <select className="w-full border border-gray-300 rounded-lg p-2">
-                  <option value="">Any Price</option>
-                  <option value="free">Free</option>
-                  <option value="paid">Paid</option>
-                  <option value="0-50">$0 - $50</option>
-                  <option value="50-100">$50 - $100</option>
-                  <option value="100+">$100+</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sort By
-                </label>
-                <select className="w-full border border-gray-300 rounded-lg p-2">
-                  <option value="date">Date (Soonest)</option>
-                  <option value="price-low">Price (Low to High)</option>
-                  <option value="price-high">Price (High to Low)</option>
-                  <option value="popularity">Popularity</option>
-                </select>
-              </div>
+
+        {showFilters && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            {/* Additional filter controls */}
+          </div>
+        )}
+
+        {isLoading && events.length === 0 ? (
+          <div className="text-center py-12 flex justify-center">
+            <LoadingDots />
+          </div>
+        ) : error ? (
+          <div className="text-center py-12 text-red-500">{error}</div>
+        ) : filteredEvents.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {filteredEvents.map(event => (
+                <EventCard key={event.id} event={event} />
+              ))}
             </div>
-          </div>}
-        {filteredEvents.length > 0 ? <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {filteredEvents.map(event => <EventCard key={event.id} event={event} />)}
-          </div> : <div className="text-center py-12">
+            {/* Loader trigger */}
+            <div ref={loaderRef} className="h-12 flex justify-center items-center">
+              {isLoading && <LoadingDots />}
+              {!nextPage && !isLoading && (
+                <span className="text-gray-400">No more events</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
             <p className="text-lg text-gray-600">
-              No events found matching your criteria. Try adjusting your
-              filters.
+              No events found matching your criteria. Try adjusting your filters.
             </p>
-          </div>}
-        {filteredEvents.length > 0 && <div className="mt-12 flex justify-center">
-            <nav className="inline-flex rounded-md shadow">
-              <button className="px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                Previous
-              </button>
-              <button className="px-4 py-2 border-t border-b border-gray-300 bg-indigo-50 text-sm font-medium text-indigo-600">
-                1
-              </button>
-              <button className="px-4 py-2 border-t border-b border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                2
-              </button>
-              <button className="px-4 py-2 border-t border-b border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                3
-              </button>
-              <button className="px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                Next
-              </button>
-            </nav>
-          </div>}
+          </div>
+        )}
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default EventsPage;
